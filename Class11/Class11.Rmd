@@ -1,0 +1,95 @@
+---
+title: "Class11"
+author: "Ryan Fong"
+date: "2022-11-02"
+output: pdf_document
+---
+
+# Section 1. Proportion on G/G in a population
+
+Download a CSV file from Ensemble < https://uswest.ensembl.org/Homo_sapiens/Variation/Sample?db=core;r=17:39894595-39895595;v=rs8067378;vdb=variation;vf=105535077;sample=mxl#373531_tablePanel >
+
+Here we read this CSV file
+
+```{r}
+mxl <- read.csv("373531-SampleGenotypes-Homo_sapiens_Variation_Sample_rs8067378.csv")
+head(mxl)
+```
+
+```{r}
+table(mxl$Genotype..forward.strand)
+```
+
+```{r}
+table(mxl$Genotype..forward.strand) / nrow(mxl)
+```
+
+Now let's look at a different population. I picked the GBR.
+
+```{r}
+gbr <- read.csv("373522-SampleGenotypes-Homo_sapiens_Variation_Sample_rs8067378.csv")
+
+```
+
+Find proportion of G|G 
+
+```{r}
+table(gbr$Genotype..forward.strand.) /nrow(gbr)
+```
+
+The variant that is associated with childhood asthma is more frequent in GBR population than in MXL population.
+
+## Section 4: Population Scale Analysis
+
+>Q13: Read this file into R and determine the sample size for each genotype and their
+corresponding median expression levels for each of these genotypes. 
+
+
+How many samples do we have?
+
+```{r}
+expr <- read.table("rs8067378_ENSG00000172057.6.txt")
+head(expr)
+```
+We want to check total genotype
+
+```{r}
+nrow(expr)
+```
+See how many of each type
+
+```{r}
+table(expr$geno)
+```
+
+ggplot2 wil first be loaded
+```{r}
+library(ggplot2)
+
+```
+
+
+Now a boxplot will be made
+
+```{r}
+ggplot(expr) + aes(x=geno,exp, fill=geno) +
+  geom_boxplot(notch=TRUE)
+```
+
+From the boxplot, the median expression levels for the A/A genotype is roughly 32. For the A/G genotype, it is 25. For the G/G genotype it is 20
+
+>Q14: Generate a boxplot with a box per genotype, what could you infer from the relative
+expression value between A/A and G/G displayed in this plot? Does the SNP effect the
+expression of ORMDL3?
+
+I can infer from this relative expression value between A/A and G/G in this plot is that A/A has more expression when compared to G/G. SNP does have an effect on the expression of ORMDL3 because there are increases and decreases in expression in other genese from SNP.
+
+
+
+
+
+
+
+
+
+
