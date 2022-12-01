@@ -1,0 +1,258 @@
+---
+title: "Class12"
+author: "Ryan Fong"
+format: pdf
+---
+
+# 2. Import countData and colData
+
+Data will be downloaded and imported
+
+```{r}
+counts <- read.csv("airway_scaledcounts.csv", row.names=1)
+metadata <-  read.csv("airway_metadata.csv")
+```
+
+```{r}
+head(counts)
+head(metadata)
+```
+
+>Q1. How many genes are in this dataset? 
+
+```{r}
+nrow(counts)
+```
+
+>Q2. How many ‘control’ cell lines do we have? 
+
+I will check correspondense of metadata and counts data
+
+```{r}
+metadata$id
+```
+
+```{r}
+colnames(counts)
+```
+
+`==` will be used to check that everything is all in the same order.
+
+```{r}
+all(metadata$id == colnames(counts))
+```
+
+```{r}
+dim(metadata)
+```
+
+4
+
+#3. Toy differential gene expression
+
+The treated has the dex drug and control does not. The control column must be extracted
+
+```{r}
+control.inds <- metadata$dex == "control"
+metadata[control.inds,"id"]
+```
+
+The control column can now only be access from the `count` data
+
+```{r}
+control <- metadata[metadata[,"dex"]=="control",]
+control.counts <- counts[ ,control$id]
+control.mean <- rowSums( control.counts )/4 
+head(control.mean)
+```
+
+>Q3. How would you make the above code in either approach more robust?
+
+The code above could be more robust by replacing the 4 when being divided by another function `rowMeans()` because when more samples are added than the 4 will mess up the mean.
+
+```{r}
+control.mean <- rowMeans(control.counts)
+head(control.mean)
+```
+
+>Q4. Follow the same procedure for the treated samples (i.e. calculate the mean per gene across drug treated samples and assign to a labeled vector called treated.mean)
+
+```{r}
+treated.id <- metadata[metadata$dex == "treated","id"]
+treated.mean <- rowMeans(counts[,treated.id])
+head(treated.mean)
+```
+
+>Q5 (a). Create a scatter plot showing the mean of the treated samples against the mean of the control samples. Your plot should look something like the following.
+
+```{r}
+meancounts <- data.frame(control.mean, treated.mean)
+```
+
+```{r}
+plot(meancounts)
+```
+
+The scatterplot above is very skewed over a wide range which can be fixed 
+
+```{r}
+plot(meancounts,log="xy")
+```
+
+Log transformed data heklp make things easier to interpert
+
+>Q5 (b).You could also use the ggplot2 package to make this figure producing the plot below. What geom_?() function would you use for this plot?
+
+A `geom_point()` function will be used
+
+```{r}
+library(ggplot2)
+ggplot(meancounts, aes(x=control.mean, y=treated.mean,alpha=0.2)) +
+  geom_point()
+```
+
+
+>Q6. Try plotting both axes on a log scale. What is the argument to plot() that allows you to do this?
+
+```{r}
+library(ggplot2)
+ggplot(meancounts, aes(x=control.mean, y=treated.mean,alpha=0.2)) +
+  geom_point()+
+ scale_x_continuous(trans="log2")+
+  scale_y_continuous(trans="log2")
+```
+
+```{r}
+meancounts$log2fc <- log2(meancounts[,"treated.mean"]/meancounts[,"control.mean"])
+head(meancounts)
+```
+
+```{r}
+zero.vals <- which(meancounts[,1:2]==0, arr.ind=TRUE)
+
+to.rm <- unique(zero.vals[,1])
+mycounts <- meancounts[-to.rm,]
+head(mycounts)
+```
+
+
+>Q7. What is the purpose of the arr.ind argument in the which() function call above? Why would we then take the first column of the output and need to call the unique() function?
+
+The purpose of that arguement is to tell use which genes have zero count. We need to use the `unique()` function so that the count data is not counted more than one time.
+
+We want to filter out any genes (that is the rows) where we have ZERO count data.
+
+```{r}
+to.keep.inds <- rowSums(meancounts[,1:2] == 0) == 0
+head(to.keep.inds)
+```
+
+```{r}
+mycounts <- meancounts[to.keep.inds,]
+nrow(mycounts)
+```
+
+A common threshold for calling genes as differential expressed is a log2 fold-change of +2 or -2.
+
+```{r}
+sum(mycounts$log2fc >= +2)
+```
+
+```{r}
+up.ind <- mycounts$log2fc > 2
+down.ind <- mycounts$log2fc < (-2)
+
+```
+
+>Q8. Using the up.ind vector above can you determine how many up regulated genes we have at the greater than 2 fc level? 
+
+```{r}
+sum(up.ind)
+```
+
+> Using the down.ind vector above can you determine how many down regulated genes we have at the greater than 2 fc level?
+
+```{r}
+sum(down.ind)
+```
+
+>Q10. Do you trust these results? Why or why not?
+
+I do not trust these results because a significance test was not ran to see the p-value to check the significance.
+
+# 4. DESeq2 analysis
+
+```{r}
+library(DESeq2)
+citation("DESeq2")
+```
+
+DESeq2 package main cuntion is so count data and colData(metadata) as input in a specific way
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData=counts, 
+                              colData=metadata, 
+                              design=~dex)
+dds
+```
+
+The DESeq analysis can be ran
+```{r}
+dds <- DESeq(dds)
+results(dds)
+```
+
+Now what we have so far is the log2 fold-change and the adjusted p-value for the significance.
+
+```{r}
+res <- results(dds)
+
+head(res)
+```
+# 6. Data Visualization
+
+First plot
+
+```{r}
+plot( res$log2FoldChange,res$padj)
+```
+All the p_value are down below zero so a log should be taken of the p-value
+
+```{r}
+plot( res$log2FoldChange,  -log(res$padj), 
+      xlab="Log2(FoldChange)",
+      ylab="-Log(P-value)")
+```
+
+Cut off lines can be made to show the places on the plot where it is significant
+```{r}
+plot( res$log2FoldChange,  -log(res$padj), 
+ ylab="-Log(P-value)", xlab="Log2(FoldChange)")
+
+# Add some cut-off lines
+abline(v=c(-2,2), col="darkgray", lty=2)
+abline(h=-log(0.05), col="darkgray", lty=2)
+```
+
+Color can be added to the plot
+
+```{r}
+# Setup our custom point color vector 
+mycols <- rep("gray", nrow(res))
+mycols[ abs(res$log2FoldChange) > 2 ]  <- "red" 
+
+inds <- (res$padj < 0.01) & (abs(res$log2FoldChange) > 2 )
+mycols[ inds ] <- "blue"
+
+# Volcano plot with custom colors 
+plot( res$log2FoldChange,  -log(res$padj), 
+ col=mycols, ylab="-Log(P-value)", xlab="Log2(FoldChange)" )
+
+# Cut-off lines
+abline(v=c(-2,2), col="gray", lty=2)
+abline(h=-log(0.1), col="gray", lty=2)
+```
+
+
+
+
